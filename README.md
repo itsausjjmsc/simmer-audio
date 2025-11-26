@@ -33,6 +33,7 @@ Simmer runs as an Android foreground service and will later include a UI for mon
 - ✔ Core logging system (`SimmerLog`)  
 - ✔ Android Logcat bridge for observing real-time behavior  
 - ✔ Foreground service wiring: mic → engine → controller → debug logs
+- ✔ Runtime Microphone Permission handling (Gate)
 
 ---
 
@@ -70,6 +71,7 @@ Simmer uses modern Android tooling.
 adb logcat | grep "Simmer-"
 
 The debug pipeline logs will show raw vs smoothed dB, silence detection, and controller decisions.
+- App will request RECORD_AUDIO permission on first launch.
 
 ---
 

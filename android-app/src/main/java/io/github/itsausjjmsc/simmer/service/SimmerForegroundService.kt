@@ -9,8 +9,10 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import io.github.itsausjjmsc.simmer.R
+import io.github.itsausjjmsc.simmer.SimmerApplication
 import io.github.itsausjjmsc.simmer.audio.RoomAudioSampler
 import io.github.itsausjjmsc.simmer.core.*
+import io.github.itsausjjmsc.simmer.data.AudioRepository
 
 class SimmerForegroundService : Service() {
 
@@ -22,10 +24,14 @@ class SimmerForegroundService : Service() {
     private var behaviorConfig: BehaviorConfig? = null
     private var loudnessEngine: LoudnessEngine? = null
 
+    private val audioRepository: AudioRepository by lazy {
+        (application as SimmerApplication).appContainer.audioRepository
+    }
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        Log.d("Simmer-Service", "Service created, starting engine...")
 
         // 1) Behavior configuration (temporary hardcoded defaults)
         behaviorConfig = BehaviorConfig(
@@ -76,11 +82,19 @@ class SimmerForegroundService : Service() {
             bufferMillis = 200
         ) { rmsDb ->
             val now = System.currentTimeMillis()
-            val action = controller?.onLoudnessSample(rmsDb, now) ?: VolumeAction.None
+            val currentController = controller
+            if (currentController != null) {
+                val action = currentController.onLoudnessSample(rmsDb, now)
+                val metrics = currentController.getLastMetrics()
+                val state = currentController.getControllerState() // core.ControllerState
 
-            // For now, just log the decision. Actual AVR control comes later.
-            if (action !is VolumeAction.None) {
-                Log.d("SimmerForegroundService", "VolumeAction from controller: $action")
+                Log.d(
+                    "Pipeline",
+                    "rms=$rmsDb, smooth=${metrics?.smoothedDb}, silent=${metrics?.isSilent}, state=$state, action=$action"
+                )
+
+                val smoothedDb = metrics?.smoothedDb ?: -60f
+                audioRepository.updateFromEngine(smoothedDb, state)
             }
         }
     }
@@ -107,6 +121,8 @@ class SimmerForegroundService : Service() {
         loudnessEngine = null
         behaviorConfig = null
     }
+
+
 
     override fun onBind(intent: Intent?): IBinder? {
         return null
